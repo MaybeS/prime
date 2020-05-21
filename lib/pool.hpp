@@ -29,30 +29,29 @@ namespace thread {
 
             this->workers.reserve(threads_n);
             for (; threads_n; --threads_n) {
-                this->workers.emplace_back([this, tid = threads_n] {
+                this->workers.emplace_back([this] {
                     while (true) {
                         std::function<void()> task = nullptr;
-                        std::function<void(size_t)> idtask = nullptr;
+
                         {
                             std::unique_lock<std::mutex> lock(this->queue_mutex);
                             this->condition.wait(lock, [this] {
-                                return this->stop || !this->tasks.empty() || !this->idtasks.empty();
+                                return this->is_stop() || !this->tasks.empty();
                             });
-                            if (this->stop && this->tasks.empty() && this->idtasks.empty())
+
+                            if (this->is_stop() && this->tasks.empty()) {
                                 return;
+                            }
 
                             if (!this->tasks.empty()) {
                                 task = std::move(this->tasks.front());
                                 this->tasks.pop();
-                            } else if (!this->idtasks.empty()) {
-                                idtask = std::move(this->idtasks.front());
-                                this->idtasks.pop();
                             }
                         }
-                        if (task != nullptr)
+
+                        if (task != nullptr) {
                             task();
-                        else
-                            idtask(tid - 1);
+                        }
                     }
                 });
             }
@@ -89,38 +88,14 @@ namespace thread {
             return res;
         }
 
-        /*
-            push function to thread::Pool parameter with thread_id
-            It is difficult to bind the parameters to get the thread ID as an argument.
-            Better to capture variable outside thread.
-            function packaged and cast to std::shared_ptr for efficiency
-            packaged_task is performed in parallel on shared memory resources.
-        */
-        template <typename F>
-        std::future<typename std::result_of<F(size_t)>::type> push(F&& f) {
-            using packaged_task_t = std::packaged_task<typename std::result_of<F(size_t)>::type(size_t)>;
-
-            std::shared_ptr<packaged_task_t> task(new packaged_task_t(
-                    std::forward<F>(f)
-            ));
-
-            auto res = task->get_future();
-
-            {
-                std::unique_lock<std::mutex> lock(this->queue_mutex);
-                this->idtasks.emplace([task](size_t tid) {
-                    (*task)(tid);
-                });
-            }
-
-            this->condition.notify_one();
-            return res;
-        }
-
         // release resources
         virtual ~Pool() {
-            if (!is_stop())
+            if (!this->is_stop())
                 terminate();
+        }
+
+        void join() {
+            while (!tasks.empty()) {}
         }
 
         void terminate() {
@@ -137,7 +112,6 @@ namespace thread {
     private:
         std::vector<std::thread> workers;
         std::queue<std::function<void()>> tasks;
-        std::queue<std::function<void(size_t)>> idtasks;
 
         std::mutex queue_mutex;
         std::condition_variable condition;
