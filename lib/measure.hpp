@@ -18,39 +18,18 @@
 #include <cstring>
 #include <cpuid.h>
 
-template<std::size_t...> struct seq{};
-
-template<std::size_t N, std::size_t... Is>
-struct gen_seq : gen_seq<N-1, N-1, Is...>{};
-
-template<std::size_t... Is>
-struct gen_seq<0, Is...> : seq<Is...>{};
-
-template<class Ch, class Tr, class Tuple, std::size_t... Is>
-void print_tuple(std::basic_ostream<Ch,Tr>& os, Tuple const& t, seq<Is...>){
-    using swallow = int[];
-    (void)swallow{0, (void(os << (Is == 0? "" : ", ") << std::get<Is>(t)), 0)...};
-}
-
-template<class Ch, class Tr, class... Args>
-auto operator<<(std::basic_ostream<Ch, Tr>& os, std::tuple<Args...> const& t)
--> std::basic_ostream<Ch, Tr>& {
-    os << "(";
-    print_tuple(os, t, gen_seq<sizeof...(Args)>());
-    return os << ")";
-}
-
 struct measure {
     using clock = std::chrono::high_resolution_clock;
 
     template<size_t N = 10, typename T = std::chrono::microseconds>
     class Measure {
     private:
-        T duration;
+        T duration, duration_total;
         std::list<std::stringstream*> logs;
 
     public:
-        explicit Measure() : duration() {}
+        explicit Measure() :
+            duration(T::zero()), duration_total(T::zero()) {}
 
         template<typename F, typename ...Args>
         auto execute(F&& f, bool verbose = false, Args&&... args) {
@@ -65,6 +44,7 @@ struct measure {
             }
 
             this->duration = std::chrono::duration_cast<T>(clock::now() - start);
+            this->duration_total += this->duration;
             std::cout.clear();
 
             return *this;
@@ -76,6 +56,17 @@ struct measure {
             (*stream) << title << " (" << N << " times)" << std::endl;
             (*stream) << "\tTotal: " << this->duration.count() << unit_string() << std::endl;
             (*stream) << "\tMean: " << this->duration.count() / (double)N << unit_string() << std::endl;
+
+            ostream << stream->str();
+            this->logs.push_back(stream);
+
+            return *this;
+        }
+
+        auto total(std::ostream& ostream = std::cout) {
+            auto stream = new std::stringstream();
+
+            (*stream) << "Total duration: " << this->duration_total.count() << unit_string() << std::endl;
 
             ostream << stream->str();
             this->logs.push_back(stream);
@@ -113,7 +104,7 @@ struct measure {
                     }
                     ostream << "CPU Type: " << CPU_BRAND_STRING << std::endl;
                 }
-                {
+                {   // report each execution
                     for (auto log : this->logs) {
                         ostream << log->str() << std::endl;
                     }

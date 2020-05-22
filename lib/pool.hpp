@@ -17,8 +17,165 @@
 #include <memory>
 #include <functional>
 
+namespace object {
+    template <typename T>
+    class DefaultMemoryAllocator {
+    public:
+        static inline void *allocate(size_t size) {
+            return ::operator new(size, ::std::nothrow);
+        }
+
+        static inline void deallocate(void *pointer, size_t size) {
+            ::operator delete(pointer);
+        }
+    };
+
+    template <typename T, class Allocator=DefaultMemoryAllocator<T>>
+    class Pool {
+    private:
+        static const size_t _size;
+
+        struct Node {
+            size_t capacity{};
+            void * memory{};
+            Node * next;
+
+            explicit Node(size_t capacity) :
+                capacity(capacity), next(nullptr) {
+
+                if (capacity < 1) {
+                    throw std::invalid_argument("capacity must be at least 1.");
+                }
+
+                this->memory = Allocator::allocate(_size * capacity);
+                if (this->memory == nullptr) {
+                    throw std::bad_alloc();
+                }
+            }
+            ~Node() {
+                Allocator::deallocate(memory, _size * capacity);
+            }
+
+            Node(const Node&) = delete;
+            Node& operator=(const Node&) = delete;
+            Node(Node&&) = delete;
+            Node& operator=(Node&&) = delete;
+        };
+
+        Node first, *last;
+        void * memory{};
+        T* first_delete;
+        size_t count_node;
+        size_t capacity;
+        size_t max_block_size;
+
+        void allocate() {
+            size_t size = this->count_node;
+            if (assert_block(size)) {
+                size = this->max_block_size;
+            } else {
+                size *= 2;
+
+                if (assert_count(size)) {
+                    throw std::overflow_error("cannot allocate memory, pool size is too big");
+                }
+                if (assert_block(size)) {
+                    size = this->max_block_size;
+                }
+            }
+
+            Node *node = new Node(size);
+            this->last->next = node;
+            this->last = node;
+
+            this->memory = node->memory;
+            this->count_node = 0;
+            this->capacity = size;
+        }
+
+        [[nodiscard]] bool assert_count(size_t size) const {
+            return size < this->count_node;
+        }
+        [[nodiscard]] bool assert_block(size_t size) const {
+            return size >= this->max_block_size;
+        }
+
+    public:
+        /*
+            Init object::Pool, set n initial objects to ready for works
+            use ::get to get object from object::Pool
+        */
+        explicit Pool(size_t capacity=32, size_t max_block_size=1000000) :
+            first_delete(nullptr), count_node(0), capacity(capacity),
+            first(capacity), max_block_size(max_block_size) {
+            if (this->max_block_size < 1) {
+                throw std::invalid_argument("max_block_size must be at least 1.");
+            }
+
+            this->memory = this->first.memory;
+            this->last =&this->first;
+        }
+        ~Pool() {
+            Node *node = this->first.next, *next;
+            while (node) {
+                next = node->next;
+                delete node;
+                node = next;
+            }
+        }
+
+        Pool(const Pool<T, Allocator> &src) = delete;
+        void operator= (const Pool<T, Allocator> &src) = delete;
+
+        // If you want to call a non-default constructor, set init=false
+        T* get(bool init=true) {
+            if (this->first_delete) {
+                T* result = this->first_delete;
+                this->first_delete = *((T **)this->first_delete);
+                new(result) T();
+                return result;
+            }
+
+            if (this->count_node >= this->capacity) {
+                this->allocate();
+            }
+
+            char *address = (char *)this->memory;
+            address += this->count_node++ * this->_size;
+
+            if (init) {
+                return new(address) T();
+            } else {
+                return (T *)address;
+            }
+        }
+
+        // If you want to release object without destroy, set destroy=false
+        void release(T* object, bool destroy=true) {
+            if (destroy) {
+                object->~T();
+            }
+
+            *((T **)object) = this->first_delete;
+            this->first_delete = object;
+        }
+    };
+
+    template<typename T, class Allocator>
+    const size_t Pool<T, Allocator>::_size
+    = ((sizeof(T) + sizeof(void *) - 1) / sizeof(void *)) * sizeof(void *);
+}
+
 namespace thread {
     class Pool {
+    private:
+        std::vector<std::thread> workers;
+        std::queue<std::function<void()>> tasks;
+
+        std::mutex queue_mutex;
+        std::condition_variable condition;
+        std::atomic_bool stop;
+
     public:
         /*
             Init thread::Pool, set n workers to ready for works.
@@ -108,14 +265,6 @@ namespace thread {
         [[nodiscard]] bool is_stop() const {
             return this->stop;
         }
-
-    private:
-        std::vector<std::thread> workers;
-        std::queue<std::function<void()>> tasks;
-
-        std::mutex queue_mutex;
-        std::condition_variable condition;
-        std::atomic_bool stop;
     };
 }
 
