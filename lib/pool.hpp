@@ -2,8 +2,8 @@
 // Created by Jiun, Bae on 2020-05-21.
 //
 
-#ifndef PRIME_POOL_HPP
-#define PRIME_POOL_HPP
+#ifndef POOL_HPP
+#define POOL_HPP
 
 #include <vector>
 #include <queue>
@@ -17,20 +17,20 @@
 #include <memory>
 #include <functional>
 
+template <typename T>
+class DefaultAllocator {
+public:
+    static inline void *allocate(size_t size) {
+        return ::operator new(size, ::std::nothrow);
+    }
+
+    static inline void deallocate(void *pointer, size_t size) {
+        ::operator delete(pointer);
+    }
+};
+
 namespace object {
-    template <typename T>
-    class DefaultMemoryAllocator {
-    public:
-        static inline void *allocate(size_t size) {
-            return ::operator new(size, ::std::nothrow);
-        }
-
-        static inline void deallocate(void *pointer, size_t size) {
-            ::operator delete(pointer);
-        }
-    };
-
-    template <typename T, class Allocator=DefaultMemoryAllocator<T>>
+    template <typename T, class Allocator = DefaultAllocator<T>>
     class Pool {
     private:
         static const size_t _size;
@@ -40,9 +40,8 @@ namespace object {
             void * memory{};
             Node * next;
 
-            explicit Node(size_t capacity) :
-                capacity(capacity), next(nullptr) {
-
+            explicit Node(size_t capacity)
+            : capacity(capacity), next(nullptr) {
                 if (capacity < 1) {
                     throw std::invalid_argument("capacity must be at least 1.");
                 }
@@ -105,8 +104,8 @@ namespace object {
             Init object::Pool, set n initial objects to ready for works
             use ::get to get object from object::Pool
         */
-        explicit Pool(size_t capacity=32, size_t max_block_size=1000000) :
-            first_delete(nullptr), count_node(0), capacity(capacity),
+        explicit Pool(size_t capacity=32, size_t max_block_size=1000000)
+        : first_delete(nullptr), count_node(0), capacity(capacity),
             first(capacity), max_block_size(max_block_size) {
             if (this->max_block_size < 1) {
                 throw std::invalid_argument("max_block_size must be at least 1.");
@@ -268,4 +267,4 @@ namespace thread {
     };
 }
 
-#endif //PRIME_POOL_HPP
+#endif //POOL_HPP

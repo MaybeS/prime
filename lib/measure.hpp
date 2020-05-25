@@ -2,8 +2,8 @@
 // Created by Jiun, Bae on 2020-05-21.
 //
 
-#ifndef PRIME_MEASURE_HPP
-#define PRIME_MEASURE_HPP
+#ifndef MEASURE_HPP
+#define MEASURE_HPP
 
 #include <iostream>
 #include <ostream>
@@ -18,6 +18,8 @@
 #include <cstring>
 #include <cpuid.h>
 
+#include <progress.hpp>
+
 struct measure {
     using clock = std::chrono::high_resolution_clock;
 
@@ -26,10 +28,14 @@ struct measure {
     private:
         T duration, duration_total;
         std::list<std::stringstream*> logs;
+        Progress progress;
 
     public:
-        explicit Measure() :
-            duration(T::zero()), duration_total(T::zero()) {}
+        explicit Measure()
+        : duration(T::zero()), duration_total(T::zero()),
+          progress(0.f, (100.f / N)) {
+
+        }
 
         template<typename F, typename ...Args>
         auto execute(F&& f, bool verbose = false, Args&&... args) {
@@ -37,10 +43,14 @@ struct measure {
                 std::cout.setstate(std::ios_base::badbit);
             }
 
+            progress.clear();
+
             auto start = clock::now();
 
             for (size_t i = 0; i < N; i++) {
                 std::forward<decltype(f)>(f)(std::forward<Args>(args)...);
+                progress.update();
+                std::cout << progress << std::endl;
             }
 
             this->duration = std::chrono::duration_cast<T>(clock::now() - start);
@@ -139,4 +149,4 @@ struct measure {
     };
 };
 
-#endif //PRIME_MEASURE_HPP
+#endif //MEASURE_HPP

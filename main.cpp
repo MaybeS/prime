@@ -1,38 +1,36 @@
 #include <iostream>
 #include <bitset>
-#include <queue>
 #include <future>
 
-#include "lib/pool.hpp"
-#include "lib/measure.hpp"
+#include <pool.hpp>
+#include <measure.hpp>
 
-const uint64_t  N = 100000;
+#include <gridarray.hpp>
+
+const uint64_t N = 10000;
 const size_t THREAD_N = 4;
 
 int main() {
-    auto array = std::make_shared<std::bitset<N>>();
-    object::Pool<std::bitset<N>> object_pool;
-
-    measure::Measure<1, std::chrono::milliseconds>()
-    .execute<>([&array, &object_pool]() {
+    auto sieve = GridArray<uint_fast64_t, 100>(N);
+    measure::Measure<100, std::chrono::milliseconds>()
+    .execute<>([&sieve]() {
         thread::Pool thread_pool(THREAD_N);
 
         for (uint64_t i = 2; i < N; i++) {
-            thread_pool.push([&array, &object_pool](uint64_t i) {
+            thread_pool.push([&sieve](uint64_t i) {
                 uint64_t ii = i * i;
-                auto temp = object_pool.get();
-                for (uint64_t j = ii; j < N; j += i) {
-                    temp->set(j - 1, true);
-                };
-                (*array) |= (*temp);
+
+                for (uint_fast64_t j = ii; j < N; j+= i) {
+                    sieve[j - 1] |= true;
+                }
             }, i);
         }
 
         thread_pool.join();
-    }).log("Initialize sieve")
-    .execute([&array]() {
+    }, true).log("Initialize sieve")
+    .execute([&sieve]() {
         for (uint64_t i = 2; i < N; i++) {
-            if (!(*array)[i - 1]) {
+            if (!sieve[i - 1]) {
                 std::cout << i << "\t";
             }
         }
