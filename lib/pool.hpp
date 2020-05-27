@@ -257,8 +257,9 @@ namespace thread {
         void terminate() {
             this->stop = true;
             this->condition.notify_all();
-            for (std::thread& worker : this->workers)
+            for (std::thread& worker : this->workers) {
                 worker.join();
+            }
         }
 
         [[nodiscard]] bool is_stop() const {

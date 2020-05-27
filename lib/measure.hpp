@@ -31,9 +31,9 @@ struct measure {
         Progress progress;
 
     public:
-        explicit Measure()
+        explicit Measure(const char* title = "")
         : duration(T::zero()), duration_total(T::zero()),
-          progress(0.f, (100.f / N)) {
+          progress(title, 0.f, (100.f / N)) {
 
         }
 

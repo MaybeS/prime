@@ -2,38 +2,25 @@
 #include <bitset>
 #include <future>
 
-#include <pool.hpp>
 #include <measure.hpp>
 
 #include <gridarray.hpp>
+#include <solver.hpp>
 
-const uint64_t N = 10000;
-const size_t THREAD_N = 4;
+const uint64_t N = 100000000;
 
 int main() {
-    auto sieve = GridArray<uint_fast64_t, 100>(N);
-    measure::Measure<100, std::chrono::milliseconds>()
-    .execute<>([&sieve]() {
-        thread::Pool thread_pool(THREAD_N);
+    prime::Solver solver{};
 
-        for (uint64_t i = 2; i < N; i++) {
-            thread_pool.push([&sieve](uint64_t i) {
-                uint64_t ii = i * i;
-
-                for (uint_fast64_t j = ii; j < N; j+= i) {
-                    sieve[j - 1] |= true;
-                }
-            }, i);
-        }
-
-        thread_pool.join();
+    measure::Measure<1, std::chrono::milliseconds>("isPrime")
+    .execute<>([&solver]() {
+        solver = prime::Solver(N);
+        solver.init();
     }, true).log("Initialize sieve")
-    .execute([&sieve]() {
-        for (uint64_t i = 2; i < N; i++) {
-            if (!sieve[i - 1]) {
-                std::cout << i << "\t";
-            }
-        }
+    .execute([&solver]() {
+        solver.iter([](uint_fast64_t i) {
+            std::cout << i << ", ";
+        });
     }, false).log("Get Primes")
     .total().report("results");
 
