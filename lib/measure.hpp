@@ -38,7 +38,7 @@ struct measure {
         }
 
         template<typename F, typename ...Args>
-        auto execute(F&& f, bool verbose = false, Args&&... args) {
+        auto execute(F&& f, Args&&... args, bool verbose=false) {
             if (!verbose) {
                 std::cout.setstate(std::ios_base::badbit);
             }
