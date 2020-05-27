@@ -23,7 +23,7 @@
 struct measure {
     using clock = std::chrono::high_resolution_clock;
 
-    template<size_t N = 10, typename T = std::chrono::microseconds>
+    template<size_t N=10, typename T=std::chrono::microseconds>
     class Measure {
     private:
         T duration, duration_total;
@@ -31,7 +31,7 @@ struct measure {
         Progress progress;
 
     public:
-        explicit Measure(const char* title = "")
+        explicit Measure(const char* title="")
         : duration(T::zero()), duration_total(T::zero()),
           progress(title, 0.f, (100.f / N)) {
 
@@ -60,7 +60,7 @@ struct measure {
             return *this;
         }
 
-        auto log(const char* title, std::ostream& ostream = std::cout) {
+        auto log(const char* title, std::ostream& ostream=std::cout) {
             auto stream = new std::stringstream();
 
             (*stream) << title << " (" << N << " times)" << std::endl;
@@ -73,7 +73,7 @@ struct measure {
             return *this;
         }
 
-        auto total(std::ostream& ostream = std::cout) {
+        auto total(std::ostream& ostream=std::cout) {
             auto stream = new std::stringstream();
 
             (*stream) << "Total duration: " << this->duration_total.count() << unit_string() << std::endl;
@@ -84,7 +84,7 @@ struct measure {
             return *this;
         }
 
-        void report(const char* pathname, const char* extension = ".log") const {
+        void report(const char* pathname, const char* extension=".log") const {
             if (!std::filesystem::exists(pathname)) {
                 std::filesystem::create_directory(pathname);
             }

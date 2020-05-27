@@ -17,20 +17,20 @@
 #include <memory>
 #include <functional>
 
-template <typename T>
-class DefaultAllocator {
-public:
-    static inline void *allocate(size_t size) {
-        return ::operator new(size, ::std::nothrow);
-    }
-
-    static inline void deallocate(void *pointer, size_t size) {
-        ::operator delete(pointer);
-    }
-};
-
 namespace object {
-    template <typename T, class Allocator = DefaultAllocator<T>>
+    template <typename T>
+    class DefaultAllocator {
+    public:
+        static inline void *allocate(size_t size) {
+            return ::operator new(size, ::std::nothrow);
+        }
+
+        static inline void deallocate(void *pointer, size_t size) {
+            ::operator delete(pointer);
+        }
+    };
+
+    template <typename T, class Allocator=object::DefaultAllocator<T>>
     class Pool {
     private:
         static const size_t _size;
@@ -180,8 +180,11 @@ namespace thread {
             Init thread::Pool, set n workers to ready for works.
             use ::push to new task on thread::Pool
         */
-        explicit Pool(size_t threads_n = std::thread::hardware_concurrency()) : stop(false) {
-            if (!threads_n) throw std::invalid_argument("more than zero threads expected");
+        explicit Pool(size_t threads_n=std::thread::hardware_concurrency())
+        : stop(false) {
+            if (!threads_n) {
+                throw std::invalid_argument("threads_n must be at least 1.");
+            }
 
             this->workers.reserve(threads_n);
             for (; threads_n; --threads_n) {

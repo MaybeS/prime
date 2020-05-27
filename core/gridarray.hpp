@@ -9,7 +9,7 @@
 
 #include <pool.hpp>
 
-template <typename T = uint64_t, size_t BLOCK = 100000, class Allocator = DefaultAllocator<bool>>
+template <typename T=uint64_t, size_t BLOCK=100000, class Allocator=object::DefaultAllocator<bool>>
 class GridArray {
 public:
     class GridArray_ {

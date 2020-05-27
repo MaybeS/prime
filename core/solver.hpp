@@ -9,7 +9,7 @@
 #include <pool.hpp>
 
 namespace prime {
-    template <typename T = uint64_t>
+    template <typename T=uint64_t>
     class Solver {
     public:
         Solver() = default;
